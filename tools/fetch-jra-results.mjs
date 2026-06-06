@@ -3,15 +3,15 @@ import path from "node:path";
 
 const ROOT = "https://www.jra.go.jp";
 const ACCESS_PATH = "/JRADB/accessS.html";
-const START_DATE = "2016-01-01";
+const START_DATE = process.env.JRA_START_DATE || "2016-01-01";
 const END_DATE = process.env.JRA_END_DATE || todayInJapan();
 const CURRENT_YEAR = Number(END_DATE.slice(0, 4));
 const RACE_FETCH_CONCURRENCY = 8;
 const REQUEST_RETRIES = 6;
 
 const outDir = path.resolve("data");
-const csvPath = path.join(outDir, "jra-results-actual.csv");
-const manifestPath = path.join(outDir, "jra-results-manifest.json");
+const csvPath = path.resolve(process.env.JRA_OUTPUT_PATH || path.join(outDir, "jra-results-actual.csv"));
+const manifestPath = path.resolve(process.env.JRA_MANIFEST_PATH || path.join(outDir, "jra-results-manifest.json"));
 
 const checkDigits = await loadMonthlyCheckDigits();
 const monthCnames = buildMonthCnames(START_DATE, END_DATE, checkDigits);
@@ -24,7 +24,8 @@ console.log(`race_links=${raceLinks.length}`);
 const rows = await fetchRaceRows(raceLinks);
 rows.sort(compareRows);
 
-fs.mkdirSync(outDir, { recursive: true });
+fs.mkdirSync(path.dirname(csvPath), { recursive: true });
+fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
 fs.writeFileSync(csvPath, toCsv(rows), "utf8");
 fs.writeFileSync(
   manifestPath,
