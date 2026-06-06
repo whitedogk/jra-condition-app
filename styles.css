@@ -26,6 +26,10 @@ input {
   font: inherit;
 }
 
+textarea {
+  font: inherit;
+}
+
 .app-shell {
   width: min(1240px, calc(100% - 32px));
   margin: 0 auto;
@@ -42,6 +46,7 @@ input {
 .class-filter,
 .toolbar,
 .summary,
+.race-card-tool,
 article {
   background: rgba(255, 255, 255, 0.88);
   border: 1px solid rgba(32, 34, 35, 0.1);
@@ -165,17 +170,27 @@ label {
 
 select,
 button,
-.file-button {
+.file-button,
+input,
+textarea {
   min-height: 42px;
   border: 1px solid rgba(32, 34, 35, 0.16);
   border-radius: 8px;
   background: #fff;
 }
 
-select {
+select,
+input,
+textarea {
   width: 100%;
   padding: 0 12px;
   color: #202223;
+}
+
+textarea {
+  min-height: 126px;
+  padding: 10px 12px;
+  resize: vertical;
 }
 
 button,
@@ -226,6 +241,35 @@ button,
   grid-template-columns: repeat(3, minmax(0, 180px)) 1fr;
   gap: 12px;
   padding: 18px;
+}
+
+.race-card-tool {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.race-card-inputs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.race-card-html-label {
+  gap: 8px;
+}
+
+.race-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.race-card-actions p {
+  color: #6b706d;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .summary div {
@@ -367,9 +411,16 @@ td:first-child {
 
   .controls,
   .class-filter,
+  .race-card-inputs,
+  .race-card-actions,
   .rankings,
   .summary {
     grid-template-columns: 1fr;
+  }
+
+  .race-card-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .check-grid {

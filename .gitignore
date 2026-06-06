@@ -3,3 +3,5 @@ data/*.json
 data/*.csv
 jra-condition-summary.csv
 github-upload-root/
+github-upload-small/
+github-upload-validated/

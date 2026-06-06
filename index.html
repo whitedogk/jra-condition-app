@@ -114,6 +114,48 @@
           <p id="dataWarning" class="data-warning"></p>
         </section>
 
+        <section class="race-card-tool" aria-label="出馬表推奨">
+          <div class="table-header">
+            <h2>出馬表から推奨5頭</h2>
+            <span>現在の検索条件で採点</span>
+          </div>
+          <div class="race-card-inputs">
+            <label>
+              出馬表URL
+              <input id="raceCardUrl" type="url" placeholder="https://www.jra.go.jp/..." />
+            </label>
+            <button id="loadRaceCardUrl" type="button">URLを読み込む</button>
+          </div>
+          <label class="race-card-html-label">
+            出馬表HTML
+            <textarea id="raceCardHtml" rows="6" placeholder="URL読み込みができない場合は、出馬表ページのHTMLを貼り付け"></textarea>
+          </label>
+          <div class="race-card-actions">
+            <button id="analyzeRaceCard" type="button">推奨5頭を出す</button>
+            <p id="raceCardStatus"></p>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>印</th>
+                  <th>馬番</th>
+                  <th>馬名</th>
+                  <th>騎手</th>
+                  <th>厩舎</th>
+                  <th>点数</th>
+                  <th>根拠</th>
+                </tr>
+              </thead>
+              <tbody id="recommendationRows">
+                <tr>
+                  <td class="empty" colspan="7">出馬表を読み込むと表示します</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
         <section class="rankings">
           <article>
             <div class="table-header">
@@ -335,8 +377,8 @@
         </section>
       </section>
     </main>
-    <script src="summary-data.js?v=20260523d"></script>
+    <script src="summary-data.js?v=20260606a"></script>
     <script src="trainer-affiliations.js?v=20260520b"></script>
-    <script src="app.js?v=20260523d"></script>
+    <script src="app.js?v=20260606a"></script>
   </body>
 </html>

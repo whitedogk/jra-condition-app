@@ -106,6 +106,8 @@ const fields = {
   trackConditionOptions: document.querySelector("#trackConditionOptions"),
   allRaceConditions: document.querySelector("#allRaceConditions"),
   raceConditionOptions: document.querySelector("#raceConditionOptions"),
+  raceCardUrl: document.querySelector("#raceCardUrl"),
+  raceCardHtml: document.querySelector("#raceCardHtml"),
 };
 
 const outputs = {
@@ -133,6 +135,8 @@ const outputs = {
   sireRateTitle: document.querySelector("#sireRateTitle"),
   damsireWinsTitle: document.querySelector("#damsireWinsTitle"),
   damsireRateTitle: document.querySelector("#damsireRateTitle"),
+  recommendationRows: document.querySelector("#recommendationRows"),
+  raceCardStatus: document.querySelector("#raceCardStatus"),
 };
 
 document.querySelector("#loadSample").addEventListener("click", () => {
@@ -180,6 +184,9 @@ fields.allRaceConditions.addEventListener("click", () => {
   setAllButtonActive(fields.allRaceConditions, fields.raceConditionOptions);
   render();
 });
+
+document.querySelector("#loadRaceCardUrl").addEventListener("click", loadRaceCardFromUrl);
+document.querySelector("#analyzeRaceCard").addEventListener("click", analyzeRaceCard);
 
 initSortableHeaders();
 hydrateFilters();
@@ -230,6 +237,291 @@ async function fetchFirstAvailable(urls) {
   }
 
   throw new Error(errors.join(" / "));
+}
+
+async function loadRaceCardFromUrl() {
+  const url = fields.raceCardUrl.value.trim();
+  if (!url) {
+    outputs.raceCardStatus.textContent = "出馬表URLを入力してください。";
+    return;
+  }
+
+  outputs.raceCardStatus.textContent = "出馬表URLを読み込み中です。";
+  try {
+    fields.raceCardHtml.value = await fetchRaceCardHtml(url);
+    outputs.raceCardStatus.textContent = "出馬表HTMLを読み込みました。";
+    analyzeRaceCard();
+  } catch (error) {
+    outputs.raceCardStatus.textContent =
+      "URLを直接読み込めませんでした。出馬表ページのHTMLを貼り付けてください。";
+  }
+}
+
+async function fetchRaceCardHtml(url) {
+  const urls = [
+    url,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  ];
+  const errors = [];
+
+  for (const target of urls) {
+    try {
+      const response = await fetch(target);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const buffer = await response.arrayBuffer();
+      return new TextDecoder("shift_jis").decode(buffer);
+    } catch (error) {
+      errors.push(error.message);
+    }
+  }
+
+  throw new Error(errors.join(" / "));
+}
+
+function analyzeRaceCard() {
+  const html = fields.raceCardHtml.value.trim();
+  if (!html) {
+    outputs.raceCardStatus.textContent = "出馬表HTMLを貼り付けてください。";
+    return;
+  }
+  if (!state.summary.length && !state.races.length) {
+    outputs.raceCardStatus.textContent = "蓄積データの読み込み後に実行してください。";
+    return;
+  }
+
+  const runners = parseRaceCardHtml(html);
+  if (!runners.length) {
+    outputs.raceCardStatus.textContent = "出走馬を読み取れませんでした。JRA出馬表のHTML全体を貼り付けてください。";
+    renderRecommendations([]);
+    return;
+  }
+
+  applyRaceInfoFromHtml(html);
+  const recommendationStats = recommendationStatsByKind();
+  const recommendations = runners
+    .map((runner) => scoreRunner(runner, recommendationStats))
+    .sort((a, b) => b.score - a.score || Number(a.horseNumber) - Number(b.horseNumber))
+    .slice(0, 5);
+
+  outputs.raceCardStatus.textContent = `${runners.length}頭から推奨5頭を出しました。`;
+  renderRecommendations(recommendations);
+}
+
+function parseRaceCardHtml(html) {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const rows = [...doc.querySelectorAll("tr")];
+  const runners = [];
+
+  rows.forEach((tr) => {
+    const cells = [...tr.querySelectorAll("td")];
+    if (cells.length < 4) return;
+
+    const horseNumber = cleanText(tr.querySelector(".num")?.textContent || cells[0]?.textContent);
+    if (!/^\d{1,2}$/.test(horseNumber)) return;
+
+    const horse = cleanText(
+      tr.querySelector(".horse a")?.textContent ||
+        tr.querySelector(".horse")?.textContent ||
+        cells.find((cell) => cell.querySelector("a") && !cell.className.includes("jockey"))?.textContent ||
+        "",
+    );
+    const jockey = normalizeName(
+      cleanText(
+        tr.querySelector(".jockey a")?.textContent ||
+          tr.querySelector(".jockey")?.textContent ||
+          cells.find((cell) => /騎手|jockey/i.test(cell.className))?.textContent ||
+          "",
+      ),
+    );
+    const trainer = normalizeName(
+      cleanText(
+        tr.querySelector(".trainer a")?.textContent ||
+          tr.querySelector(".trainer")?.textContent ||
+          cells.find((cell) => /調教師|trainer/i.test(cell.className))?.textContent ||
+          "",
+      ),
+    );
+    const sire = cleanText(tr.querySelector(".father, .sire")?.textContent);
+    const damsire = cleanText(tr.querySelector(".broodmare_sire, .damsire, .mother_father")?.textContent);
+
+    if (!horse) return;
+    runners.push({
+      horseNumber,
+      horse,
+      jockey,
+      trainer,
+      sire,
+      damsire,
+    });
+  });
+
+  return dedupeBy(runners, (runner) => runner.horseNumber);
+}
+
+function applyRaceInfoFromHtml(html) {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const text = cleanText(doc.body?.textContent || html);
+  const course = COURSE_OPTIONS.find((value) => text.includes(value));
+  const courseInfo = text.match(/([\d,]{4,5})\s*メートル\s*（?(芝|ダート|障害)/);
+  const distance = courseInfo ? Number(courseInfo[1].replaceAll(",", "")) : 0;
+  const surface = courseInfo ? courseInfo[2] : "";
+  const raceClass = classifyRaceClassFromText(text);
+  const raceCondition = classifyRaceConditionFromText(text);
+
+  if (course && [...fields.course.options].some((option) => option.value === course)) fields.course.value = course;
+  if (surface && [...fields.surface.options].some((option) => option.value === surface)) fields.surface.value = surface;
+  if (distance && [...fields.distance.options].some((option) => option.value === String(distance))) {
+    fields.distance.value = String(distance);
+  }
+  if (raceClass && RACE_CLASS_OPTIONS.includes(raceClass)) {
+    setSingleButtonActive(fields.allClasses, fields.raceClassOptions, raceClass);
+  }
+  if (raceCondition && RACE_CONDITION_OPTIONS.includes(raceCondition)) {
+    setSingleButtonActive(fields.allRaceConditions, fields.raceConditionOptions, raceCondition);
+  }
+  render();
+}
+
+function recommendationStatsByKind() {
+  const rows = state.summary.length ? filterSummaryRows() : [];
+  if (rows.length) {
+    return {
+      jockey: statsMap(buildSummaryStats(rows, "jockey")),
+      trainer: statsMap(buildSummaryStats(rows, "trainer")),
+      horseNumber: statsMap(buildSummaryStats(rows, "horseNumber")),
+      sire: statsMap(buildSummaryStats(rows, "sire")),
+      damsire: statsMap(buildSummaryStats(rows, "damsire")),
+    };
+  }
+
+  const races = filterRaces();
+  return {
+    jockey: statsMap(buildStats(races, "jockey")),
+    trainer: statsMap(buildStats(races, "trainer")),
+    horseNumber: statsMap(buildStats(races, "horseNumber")),
+    sire: statsMap(buildStats(races, "sire")),
+    damsire: statsMap(buildStats(races, "damsire")),
+  };
+}
+
+function scoreRunner(runner, stats) {
+  const parts = [
+    scoreComponent("騎手", stats.jockey.get(runner.jockey), 0.35),
+    scoreComponent("厩舎", stats.trainer.get(runner.trainer), 0.25),
+    scoreComponent("馬番", stats.horseNumber.get(String(Number(runner.horseNumber))), 0.18),
+    scoreComponent("父", stats.sire.get(runner.sire), 0.12),
+    scoreComponent("母父", stats.damsire.get(runner.damsire), 0.1),
+  ].filter(Boolean);
+  const score = parts.reduce((sum, part) => sum + part.score, 0);
+  const reasons = parts
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map((part) => `${part.label}${formatRate(part.stat.showRate)} ${part.stat.starts}走`);
+
+  return {
+    ...runner,
+    score,
+    reasons,
+  };
+}
+
+function scoreComponent(label, stat, weight) {
+  if (!stat || stat.starts < 3) return null;
+  const sampleFactor = Math.min(1, Math.log10(stat.starts + 1) / 2);
+  const value = (stat.rate * 48 + stat.quinellaRate * 28 + stat.showRate * 18 + Math.min(stat.roi, 3) * 6) * sampleFactor;
+  return {
+    label,
+    stat,
+    score: value * weight,
+  };
+}
+
+function renderRecommendations(rows) {
+  outputs.recommendationRows.replaceChildren();
+  if (!rows.length) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.className = "empty";
+    td.colSpan = 7;
+    td.textContent = "推奨馬を表示できません";
+    tr.append(td);
+    outputs.recommendationRows.append(tr);
+    return;
+  }
+
+  const marks = ["◎", "○", "▲", "△", "☆"];
+  rows.forEach((row, index) => {
+    const tr = document.createElement("tr");
+    [
+      marks[index],
+      row.horseNumber,
+      row.horse,
+      row.jockey || "-",
+      row.trainer || "-",
+      row.score.toFixed(1),
+      row.reasons.length ? row.reasons.join(" / ") : "該当条件の蓄積データが少ない",
+    ].forEach((value) => {
+      const td = document.createElement("td");
+      td.textContent = value;
+      tr.append(td);
+    });
+    outputs.recommendationRows.append(tr);
+  });
+}
+
+function statsMap(rows) {
+  return new Map(rows.map((row) => [String(row.name), row]));
+}
+
+function setSingleButtonActive(allButton, container, value) {
+  allButton.classList.remove("is-active");
+  allButton.setAttribute("aria-pressed", "false");
+  [...container.querySelectorAll("button")].forEach((button) => {
+    const active = button.value === value;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+}
+
+function classifyRaceClassFromText(text) {
+  if (/GⅠ|ＧⅠ|GI|G1/.test(text)) return "GⅠ";
+  if (/GⅡ|ＧⅡ|GII|G2/.test(text)) return "GⅡ";
+  if (/GⅢ|ＧⅢ|GIII|G3/.test(text)) return "GⅢ";
+  if (/リステッド|Listed|L\b/.test(text)) return "リステッド";
+  if (/新馬|未勝利/.test(text)) return "新馬・未勝利";
+  if (/3勝クラス|1600万円以下/.test(text)) return "3勝クラス";
+  if (/2勝クラス|1000万円以下/.test(text)) return "2勝クラス";
+  if (/1勝クラス|500万円以下/.test(text)) return "1勝クラス";
+  if (/オープン/.test(text)) return "オープン特別";
+  return "";
+}
+
+function classifyRaceConditionFromText(text) {
+  const female = /牝馬限定|牝馬/.test(text);
+  if (/2歳/.test(text) && /新馬|未勝利|1勝|オープン|G/.test(text)) return female ? "2歳牝馬限定" : "2歳限定";
+  if (/3歳/.test(text) && !/3歳以上/.test(text) && /新馬|未勝利|1勝|オープン|G/.test(text)) {
+    return female ? "3歳牝馬限定" : "3歳限定";
+  }
+  if (female) return "牝馬限定";
+  return "";
+}
+
+function dedupeBy(items, keyFn) {
+  const seen = new Set();
+  return items.filter((item) => {
+    const key = keyFn(item);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function cleanText(value = "") {
+  return String(value).replace(/\s+/g, " ").trim();
+}
+
+function normalizeName(name = "") {
+  return cleanText(name).replace(/^[▲△☆◇★]+/, "").replace(/\s+/g, "");
 }
 
 function hydrateFilters() {

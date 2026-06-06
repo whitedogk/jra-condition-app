@@ -6,8 +6,8 @@
 
 GitHub PagesなどのWebサーバー上で `index.html` を開くと、JRA公式のレース結果HTMLから取得した実データCSVを自動で読み込みます。
 ローカルでファイルを直接開いた場合はブラウザの制限でCSVを自動読み込みできないことがあるため、画面の `CSV読み込み` から `data/jra-results-actual.csv` を選んでください。
-現在同梱しているデータは35,898レース、496,674出走分です。
-期間は2016年1月5日から2026年5月23日までです。今後の再取得では、取得日の今年途中分まで含めます。
+現在同梱しているデータは35,982レース、497,892出走分です。
+期間は2016年1月5日から2026年5月31日までです。今後の再取得では、取得日の今年途中分まで含めます。
 単勝回収率用に、1着馬の単勝払戻金も取り込んでいます。
 
 競馬場は中央競馬10場を北から順に固定しています。
@@ -41,6 +41,8 @@ date,course,surface,distance,race,raceName,raceClass,finish,horseNumber,horse,jo
 馬番別成績では、馬番ごとの勝利数・出走数・勝率・連対率・複勝率・単勝回収率を確認できます。
 厩舎名の後ろには、取得できた調教師所属マスターに基づいて `（栗東）`、`（美浦）`、不明時は `（その他）` を表示します。
 
+出馬表HTMLを貼り付けると、現在選択している検索条件の蓄積データを使って推奨5頭を表示できます。URL直接読み込みはブラウザの制限で失敗する場合があるため、その場合は出馬表ページのHTMLを貼り付けてください。
+
 ## 実データの再取得
 
 JRA公式のレース結果HTMLから取得したCSVは `data/jra-results-actual.csv` にあります。
@@ -50,7 +52,9 @@ JRA公式のレース結果HTMLから取得したCSVは `data/jra-results-actual
 & 'C:\Users\matsu\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' tools\fetch-jra-results.mjs
 ```
 
-この処理は `data/jra-results-actual.csv` を、実行日の今年途中分まで含めて更新します。任意の日付で止めたい場合は `JRA_END_DATE=2026-05-23` のように指定できます。
+この処理は `data/jra-results-actual.csv` を、実行日の今年途中分まで含めて更新します。任意の日付で止めたい場合は `JRA_END_DATE=2026-05-31` のように指定できます。
+
+差分だけを取得して既存データへ追加する場合は、`JRA_START_DATE`、`JRA_END_DATE`、`JRA_OUTPUT_PATH` を指定して取得し、`tools/merge-jra-results.mjs` で対象期間を置き換えます。その後に `tools/enrich-results.mjs`、`tools/build-summary.mjs`、`tools/build-summary-js.mjs` を順に実行します。
 
 結果取得後、馬場状態・条件・最終オッズ・父馬・母父馬を補強し、画面用集計を作り直してください。
 
