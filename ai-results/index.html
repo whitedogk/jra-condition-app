@@ -1,114 +1,82 @@
 <!doctype html>
 <html lang="ja">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#f5f7f4" />
-    <title>JRA AI 投票検証</title>
-    <link rel="stylesheet" href="styles.css" />
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#173b2d">
+    <title>JRA AI 未見検証</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="styles.css">
   </head>
   <body>
     <header class="app-header">
       <div>
-        <p class="eyebrow">JRA-VAN MARKET MODEL</p>
-        <h1>AI投票検証</h1>
+        <p class="eyebrow">JRA-VAN FROZEN MODEL</p>
+        <h1>JRA AI 未見検証</h1>
       </div>
-      <div class="header-status">
-        <span class="status-dot" aria-hidden="true"></span>
-        <span id="updatedAt">更新確認中</span>
-      </div>
+      <div class="updated"><span aria-hidden="true"></span><time id="updatedAt">読込中</time></div>
     </header>
 
-    <nav class="view-tabs" aria-label="表示切替">
-      <button type="button" class="is-active" data-view="results">検証結果</button>
+    <nav class="tabs" aria-label="表示切替">
+      <button type="button" class="is-active" data-view="evaluation">未見期間</button>
       <button type="button" data-view="predictions">最近の予想</button>
+      <button type="button" data-view="audit">モデル監査</button>
     </nav>
 
     <main>
-      <section id="resultsView" class="view is-active">
-        <section class="decision-band" aria-live="polite">
+      <section id="evaluationView" class="view is-active">
+        <section class="progress-band">
           <div>
-            <span class="label">現在の判定</span>
-            <strong id="productionDecision">集計中</strong>
+            <span>固定モデル評価</span>
+            <strong id="progressCount">0 / 500 レース</strong>
           </div>
-          <p id="decisionDetail"></p>
+          <div class="progress-track" aria-hidden="true"><i id="progressBar"></i></div>
+          <p id="progressText">2026年8月15日から集計</p>
         </section>
 
-        <section class="stat-strip" aria-label="主要指標">
-          <div><span>モデルAUC</span><strong id="modelAuc">-</strong></div>
-          <div><span>ペーパー回収率</span><strong id="paperRoi">-</strong></div>
-          <div><span>オッズ変動</span><strong id="movementRoi">-</strong></div>
-          <div><span>収益モデル</span><strong id="profitRoi">-</strong></div>
+        <section class="metric-strip" aria-label="主要指標">
+          <div><span>本線投票</span><strong id="primaryBets">0</strong></div>
+          <div><span>本線回収率</span><strong id="primaryRoi">0.0%</strong></div>
+          <div><span>シャドー 1.00</span><strong id="shadow100Roi">0.0%</strong></div>
+          <div><span>シャドー 0.95</span><strong id="shadow095Roi">0.0%</strong></div>
         </section>
 
         <section class="section-band">
           <div class="section-heading">
-            <div>
-              <p class="eyebrow">UNSEEN PERIOD</p>
-              <h2>未見期間成績</h2>
-            </div>
-            <span id="dataPeriod" class="period"></span>
-          </div>
-          <div class="strategy-grid">
-            <article>
-              <div class="strategy-title">
-                <h3>オッズ変動戦略</h3>
-                <span id="movementState" class="state-badge"></span>
-              </div>
-              <dl id="movementMetrics" class="metric-list"></dl>
-            </article>
-            <article>
-              <div class="strategy-title">
-                <h3>収益モデル</h3>
-                <span id="profitState" class="state-badge"></span>
-              </div>
-              <dl id="profitMetrics" class="metric-list"></dl>
-            </article>
-          </div>
-        </section>
-
-        <section class="section-band">
-          <div class="section-heading compact">
-            <div>
-              <p class="eyebrow">ODDS RANGE</p>
-              <h2>オッズ帯別成績</h2>
-            </div>
-            <div class="segmented" role="group" aria-label="モデル切替">
-              <button type="button" class="is-active" data-model="profit">収益</button>
-              <button type="button" data-model="movement">変動</button>
-            </div>
+            <div><p class="eyebrow">100 YEN FIXED STAKE</p><h2>単勝チャンネル別成績</h2></div>
+            <span class="status-badge">ペーパーのみ</span>
           </div>
           <div class="table-scroll">
             <table>
-              <thead>
-                <tr><th>オッズ帯</th><th>投票</th><th>的中</th><th>的中率</th><th>回収率</th><th>損益</th></tr>
-              </thead>
-              <tbody id="oddsBands"></tbody>
+              <thead><tr><th>チャンネル</th><th>投票</th><th>的中</th><th>的中率</th><th>回収率</th><th>損益</th></tr></thead>
+              <tbody id="channelRows"></tbody>
             </table>
           </div>
-        </section>
-
-        <section class="data-footprint">
-          <span id="raceCount">-</span>
-          <span id="runnerCount">-</span>
-          <span id="marketCount">-</span>
-          <span id="modelVersion">-</span>
         </section>
       </section>
 
       <section id="predictionsView" class="view">
-        <div class="section-heading predictions-heading">
-          <div>
-            <p class="eyebrow">RECENT PICKS</p>
-            <h2>最近の推奨5頭</h2>
-          </div>
+        <div class="section-heading page-heading">
+          <div><p class="eyebrow">STRICT 2-10 MIN SNAPSHOT</p><h2>最近の推奨5頭</h2></div>
         </div>
         <div id="predictionList" class="prediction-list"></div>
       </section>
+
+      <section id="auditView" class="view">
+        <section class="section-band audit-band">
+          <div class="section-heading"><div><p class="eyebrow">WORKOUT A/B TEST</p><h2>調教特徴量の採用判定</h2></div><span id="workoutState" class="status-badge"></span></div>
+          <dl id="workoutMetrics" class="audit-grid"></dl>
+        </section>
+        <section class="section-band audit-band">
+          <div class="section-heading"><div><p class="eyebrow">MARKET RESIDUAL</p><h2>市場補正の設定</h2></div></div>
+          <dl id="residualMetrics" class="audit-grid"></dl>
+        </section>
+      </section>
     </main>
 
-    <footer>JRA-VAN公式データによるペーパー検証。実投票は未実施。</footer>
+    <footer>JRA-VAN公式データによる固定モデルのペーパー検証。実投票は未実施。</footer>
     <script src="data.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
+
